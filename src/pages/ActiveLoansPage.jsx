@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -9,10 +9,10 @@ import {
   TrendingUp,
   Activity,
   Zap,
-  Calculator,
   Plus
 } from 'lucide-react';
 import LoanCard from '../components/cards/LoanCard';
+import CascadeRepayCard from '../components/cards/CascadeRepayCard';
 import { formatCurrency, formatFriendlyDate } from '../services/periodAnalytics';
 
 export default function ActiveLoansPage({
@@ -20,13 +20,12 @@ export default function ActiveLoansPage({
   analytics,
   onOpenLend,
   onOpenRepay,
+  onApplyCascade,
+  isApplyingCascade = false,
   onDeleteLoan
 }) {
   const activeLoans = loans.filter(l => l.status !== 'COMPLETED');
-  const [simulatorAmount, setSimulatorAmount] = useState(500);
-
   const totalPending = analytics?.totalPending || 0;
-  const simulatedRemaining = Math.max(0, totalPending - simulatorAmount);
 
   return (
     <div className="space-y-4 pb-24">
@@ -116,43 +115,14 @@ export default function ActiveLoansPage({
         </div>
       </div>
 
-      {/* 3. Interactive Quick Repayment Simulator (Rich Interactive Content) */}
+      {/* 3. Smart FIFO Cascade Repayment Tool */}
       {totalPending > 0 && (
-        <div className="glass-card rounded-2xl p-3.5 border border-slate-800 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-slate-300 flex items-center gap-1.5">
-              <Calculator className="w-3.5 h-3.5 text-teal-400" />
-              <span>Repayment Simulator</span>
-            </span>
-            <span className="text-[11px] text-slate-400 font-mono">
-              If Pothi pays <strong className="text-teal-300 font-bold">{formatCurrency(simulatorAmount)}</strong>
-            </span>
-          </div>
-
-          {/* Quick preset chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-            {[200, 500, 1000, 2000, totalPending].filter((val, i, arr) => arr.indexOf(val) === i && val <= totalPending).map((val) => (
-              <button
-                key={val}
-                onClick={() => setSimulatorAmount(val)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all flex-shrink-0 border ${
-                  simulatorAmount === val
-                    ? 'bg-teal-500 text-slate-950 font-bold border-teal-400'
-                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-                }`}
-              >
-                {val === totalPending ? 'Full Settle' : formatCurrency(val)}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] bg-slate-900/70 p-2 rounded-xl border border-slate-800 font-mono">
-            <span className="text-slate-400">Projected Remaining Debt:</span>
-            <span className={`font-bold text-sm ${simulatedRemaining === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {formatCurrency(simulatedRemaining)} {simulatedRemaining === 0 ? '✓ (Fully Cleared)' : ''}
-            </span>
-          </div>
-        </div>
+        <CascadeRepayCard
+          activeLoans={activeLoans}
+          totalPending={totalPending}
+          onApplyCascade={onApplyCascade}
+          isSubmitting={isApplyingCascade}
+        />
       )}
 
       {/* 4. Active Loans & Timelines Section */}

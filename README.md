@@ -1,6 +1,6 @@
 # CashPO — Peer Loan & Turnaround Period Tracker
 
-A mobile-first, high-grade personal finance application specifically designed to track money lent and repaid between two people (Naveen and Friend). 
+A mobile-first, high-grade personal finance application specifically designed to track money lent and repaid between two people (**Naveen . Pothi**). 
 
 Built with **React**, **Tailwind CSS v4**, **Lucide Icons**, and integrated with your live **MockAPI** (`https://69824bfdc9a606f5d449a361.mockapi.io/CashPO`).
 
@@ -9,12 +9,13 @@ Built with **React**, **Tailwind CSS v4**, **Lucide Icons**, and integrated with
 ## Key Features
 
 1. **One-Way Lending Model**:
-   - **Naveen is always the Lender**; **Friend is always the Borrower**.
+   - **Naveen is always the Lender**; **Pothi is always the Borrower**.
    - No confusing role flips or account setups.
 
-2. **The Two Primary Quick Buttons**:
+2. **The Two Primary Quick Buttons & FIFO Cascade Repay**:
    - **`[ + Lend Money ]`**: Tap to log an amount (e.g. ₹1,000), date, and note.
-   - **`[ + Add Repay ]`**: Tap to record a partial or full repayment from your friend.
+   - **`[ + Add Repay ]`**: Tap to record a partial or full repayment.
+   - **Smart FIFO Cascade Repay Tool**: Enter a lump-sum amount Pothi gave (e.g. ₹250) $\rightarrow$ automatically clears the oldest pending loans first, showing a live waterfall preview and blocking overpayments.
 
 3. **Interactive Horizontal Milestone Timelines**:
    - Each loan displays a swipeable horizontal timeline:
@@ -30,11 +31,16 @@ Built with **React**, **Tailwind CSS v4**, **Lucide Icons**, and integrated with
    - When the remaining balance reaches ₹0, the card triggers a celebration toast, marks status as `COMPLETED`, automatically disappears from the **Active** page, and moves into the **All Timelines** archive.
 
 5. **Period & Streak Dashboard**:
-   - ⚡ **Shortest Streak**: Quickest time your friend ever fully repaid a loan.
+   - ⚡ **Shortest Streak**: Quickest time Pothi ever fully repaid a loan.
    - ⏳ **Longest Streak**: Longest loan turnaround time.
    - ⏱️ **Average Repayment Period**: Mean duration across all historical loans.
    - 🕊️ **Transaction Gap Tracker**: Days elapsed since the last transaction, plus the longest historical calm period between requests.
    - 🕒 **Active Debt Aging**: Ticking day counter for all pending loans.
+
+6. **6-Digit PIN (`000111`) Delete Protection**:
+   - All delete actions require a 6-digit PIN.
+   - Auto-verifies on the 6th digit without needing a submit button.
+   - Remembers verification for 24 hours so you don't have to re-type it repeatedly in the same day.
 
 ---
 

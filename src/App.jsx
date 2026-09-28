@@ -7,7 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import LendBottomSheet from './components/modals/LendBottomSheet';
 import RepayBottomSheet from './components/modals/RepayBottomSheet';
 import PinVerificationModal, { isPinVerifiedWithinDay } from './components/modals/PinVerificationModal';
-import { getLoans, createLoan, addRepayment, deleteLoan } from './services/api';
+import { getLoans, createLoan, addRepayment, applyCascadeRepayment, deleteLoan } from './services/api';
 import { computePeriodAnalytics } from './services/periodAnalytics';
 import { Sparkles, CheckCircle2 } from 'lucide-react';
 
@@ -17,6 +17,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isApplyingCascade, setIsApplyingCascade] = useState(false);
 
   // Modals state
   const [isLendOpen, setIsLendOpen] = useState(false);
@@ -89,6 +90,32 @@ export default function App() {
       alert('Failed to record repayment: ' + err.message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Handler: Apply FIFO Cascade Repayment across multiple loans
+  const handleApplyCascade = async ({ amount, date, note }) => {
+    setIsApplyingCascade(true);
+    try {
+      const result = await applyCascadeRepayment({ amount, date, note });
+      setLoans(result.allLoans);
+
+      // Trigger celebration toast if any loans were fully closed
+      if (result.closedLoans && result.closedLoans.length > 0) {
+        const closedCount = result.closedLoans.length;
+        setCelebrationToast({
+          title: closedCount === 1 ? 'Loan Fully Settled!' : `${closedCount} Loans Fully Settled!`,
+          message: `Cascade repayment of ₹${Number(amount).toLocaleString('en-IN')} successfully settled ${
+            closedCount === 1 ? `Loan #${result.closedLoans[0].id}` : `${closedCount} loans`
+          } and moved to Timelines archive!`
+        });
+        setTimeout(() => setCelebrationToast(null), 5000);
+      }
+    } catch (err) {
+      console.error('Error applying cascade repayment:', err);
+      alert(err.message || 'Failed to apply cascade repayment.');
+    } finally {
+      setIsApplyingCascade(false);
     }
   };
 
@@ -173,6 +200,8 @@ export default function App() {
                 analytics={analytics}
                 onOpenLend={() => setIsLendOpen(true)}
                 onOpenRepay={(loan) => handleOpenRepayForLoan(loan)}
+                onApplyCascade={handleApplyCascade}
+                isApplyingCascade={isApplyingCascade}
                 onDeleteLoan={handleDeleteLoan}
               />
             )}

@@ -175,6 +175,99 @@ export async function addRepayment(loanId, { amount, date, note }) {
   return finalSaved;
 }
 
+// 3b. Apply FIFO Cascade Repayment across multiple loans
+export async function applyCascadeRepayment({ amount, date, note }) {
+  const allLoans = await getLoans();
+  const totalRepay = Number(amount);
+  if (!totalRepay || totalRepay <= 0) {
+    throw new Error('Please enter a valid repayment amount.');
+  }
+
+  // Filter active loans (not completed) and sort by startDate ascending (oldest first - FIFO)
+  const activeLoans = allLoans
+    .filter(l => l.status !== 'COMPLETED' && (Number(l.pendingAmount) || 0) > 0)
+    .sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
+
+  const totalPending = activeLoans.reduce((sum, l) => sum + (Number(l.pendingAmount) || 0), 0);
+  if (totalRepay > totalPending) {
+    throw new Error(`Repayment amount (₹${totalRepay.toLocaleString('en-IN')}) cannot exceed total pending debt (₹${totalPending.toLocaleString('en-IN')}).`);
+  }
+
+  const repayDate = date || new Date().toISOString().split('T')[0];
+  let remainingToDistribute = totalRepay;
+  const updatedLoanMap = {};
+  const closedLoans = [];
+
+  for (const loan of activeLoans) {
+    if (remainingToDistribute <= 0) break;
+
+    const currentPending = Number(loan.pendingAmount) || 0;
+    const allocated = Math.min(currentPending, remainingToDistribute);
+    const newTotalRepaid = (Number(loan.totalRepaid) || 0) + allocated;
+    const newPendingAmount = Math.max(0, (Number(loan.principalAmount) || 0) - newTotalRepaid);
+
+    const daysSinceLent = calculateDaysBetween(loan.startDate, repayDate);
+    const prevDate = loan.repayments && loan.repayments.length > 0
+      ? loan.repayments[loan.repayments.length - 1].date
+      : loan.startDate;
+    const daysSincePrevious = calculateDaysBetween(prevDate, repayDate);
+
+    const newMilestone = {
+      id: 'rep_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      amount: allocated,
+      date: repayDate,
+      note: note?.trim() || `Lump-sum settlement`,
+      daysSinceLent,
+      daysSincePrevious
+    };
+
+    const updatedRepayments = [...(loan.repayments || []), newMilestone];
+    const isCompleted = newPendingAmount === 0;
+
+    const updatedLoan = {
+      ...loan,
+      totalRepaid: newTotalRepaid,
+      pendingAmount: newPendingAmount,
+      repayments: updatedRepayments,
+      status: isCompleted ? 'COMPLETED' : 'PARTIAL_PAID',
+      completedDate: isCompleted ? repayDate : null,
+      totalTurnaroundDays: isCompleted ? daysSinceLent : null
+    };
+
+    if (isCompleted) {
+      closedLoans.push(updatedLoan);
+    }
+
+    // Persist to MockAPI
+    let finalSaved = null;
+    try {
+      const res = await fetch(`${MOCKAPI_URL}/${loan.id}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(updatedLoan)
+      });
+      if (res.ok) {
+        finalSaved = await res.json();
+      }
+    } catch (err) {
+      console.warn(`MockAPI PUT failed for loan #${loan.id}, saving locally:`, err);
+    }
+
+    updatedLoanMap[loan.id] = finalSaved || updatedLoan;
+    remainingToDistribute -= allocated;
+  }
+
+  // Merge back into all loans
+  const updatedAllLoans = allLoans.map(l => updatedLoanMap[l.id] || l);
+  setLocalCache(updatedAllLoans);
+
+  return {
+    allLoans: updatedAllLoans,
+    closedLoans,
+    totalDistributed: totalRepay
+  };
+}
+
 // 4. Delete a loan
 export async function deleteLoan(loanId) {
   try {
